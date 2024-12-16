@@ -61,7 +61,7 @@ class BudgetPacingUCBCTR:
 
     def calculate_objective(self, results, λ=0):
         agent_impressions = np.zeros(self.num_agents)
-
+        total_utility = 0
         for _, winner, payment in results:
             agent_impressions[winner] += 1
             total_utility += self.valuations[winner] - payment  
