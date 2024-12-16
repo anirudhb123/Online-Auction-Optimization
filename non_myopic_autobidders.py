@@ -9,13 +9,6 @@ class BudgetPacingCTRPredictor:
         self.time_horizon = time_horizon
         self.upper_bound = upper_bound
 
-    def calculate_liquid_welfare(self, valuations, allocations, budgets):
-        liquid_welfare = 0
-        for agent in range(len(valuations)):
-            total_value = sum(allocations[agent] * valuations[agent])  
-            liquid_welfare += min(budgets[agent], total_value)  
-        return liquid_welfare
-
     def run(self):
         # Phase 1: Exploration
         ctr_estimates = np.zeros(self.n_agents)
@@ -74,6 +67,16 @@ class BudgetPacingCTRPredictor:
             "allocations": allocations,
             "liquid_welfare": liquid_welfare
         }
+    
+    def calculate_objective(self, valuations, allocations, budgets, λ=0):
+        liquid_welfare = 0
+        total_utility = 0
+        for agent in range(self.num_agents):
+            total_value = sum(allocations[agent] * valuations[agent])
+            liquid_welfare += min(budgets[agent], total_value)
+            payments = sum(allocations[agent])  
+            total_utility += total_value - payments
+        return (1-λ) * liquid_welfare + (λ * total_utility)
 
 n_agents = 3
 budgets = [100, 150, 200]

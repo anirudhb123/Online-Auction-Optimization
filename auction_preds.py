@@ -59,18 +59,19 @@ class BudgetPacingUCBCTR:
         return results
     
 
-    def calculate_liquid_welfare(self, results):
+    def calculate_objective(self, results, λ=0):
         agent_impressions = np.zeros(self.num_agents)
 
-        for _, winner, _ in results:
+        for _, winner, payment in results:
             agent_impressions[winner] += 1
+            total_utility += self.valuations[winner] - payment  
 
         liquid_welfare = 0
         for agent in range(self.num_agents):
             total_value = agent_impressions[agent] * self.valuations[agent]
             liquid_welfare += min(self.budgets[agent], total_value)
 
-        return liquid_welfare
+        return (1-λ) * liquid_welfare + (λ * total_utility)
 
 def plot_results(results):
     times, _, payments = zip(*results)
@@ -96,5 +97,7 @@ upper_bound = 1.0
 budget_pacing = BudgetPacingUCBCTR(n_agents, budgets, valuations, step_size, time_horizon, upper_bound)
 results = budget_pacing.run()
 plot_results(results)
-liquid_welfare = budget_pacing.calculate_liquid_welfare(results)
+liquid_welfare = budget_pacing.calculate_objective(results, λ=0)
+total_utility = budget_pacing.calculate_objective(results, λ=1)
 print("Liquid Welfare:", liquid_welfare)
+print("Total Utility:", total_utility)
