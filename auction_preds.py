@@ -72,6 +72,71 @@ class BudgetPacingUCBCTR:
             liquid_welfare += min(self.budgets[agent], total_value)
 
         return (1-λ) * liquid_welfare + (λ * total_utility)
+    
+    def calculate_regret(self, results): 
+        # Calculate optimal fixed strategy value 
+        optimal_value = self.calculate_optimal_fixed_strategy()
+        print(f"Optimal value: {optimal_value}")  # Debug print
+    
+        # Calculate cumulative value achieved by algorithm
+        cumulative_value = 0
+        regret_over_time = []
+        
+        for t, winner, payment in results:
+            # Calculate value achieved in this round
+            round_value = self.valuations[winner] - payment
+            cumulative_value += round_value
+            
+            # Calculate regret up to this point
+            optimal_value_until_t = optimal_value * (t + 1)
+            regret = max(optimal_value_until_t - cumulative_value, 1e-10)  # Ensure positive
+            regret_over_time.append(regret)
+            # Debug prints for first few rounds
+            if t < 5:
+                print(f"Round {t}: value={round_value}, cumul={cumulative_value}, regret={regret}")
+
+        return regret_over_time
+
+    def calculate_optimal_fixed_strategy(self):
+        # Grid search over possible fixed pacing multipliers
+        best_value = float('-inf')
+        for multiplier in np.linspace(0, self.upper_bound, 100):
+            value = self.simulate_fixed_strategy(multiplier)
+            best_value = max(best_value, value)
+        return best_value
+
+    def simulate_fixed_strategy(self, fixed_multiplier):
+        # Simulate auction outcomes with a fixed pacing multiplier
+        total_value = 0
+        remaining_budget = self.budgets.copy()
+        
+        for t in range(self.time_horizon):
+            # Simulate one round with fixed multiplier
+            round_value = self.simulate_round(fixed_multiplier, remaining_budget)
+            total_value += round_value
+        
+        return total_value / self.time_horizon
+
+    def simulate_round(self, fixed_multiplier, remaining_budget):
+        bids = np.zeros(self.num_agents)
+        # Use true CTRs for simulation (could be estimated from historical data)
+        true_ctrs = self.click_counts / np.maximum(self.impressions, 1)
+        
+        for k in range(self.num_agents):
+            adjusted_value = self.valuations[k] * true_ctrs[k]
+            bids[k] = min(
+                adjusted_value / (1 + fixed_multiplier),
+                remaining_budget[k]
+            )
+        
+        sorted_agents = np.argsort(bids * true_ctrs)[::-1]
+        winner = sorted_agents[0]
+        second_price = bids[sorted_agents[1]] * true_ctrs[sorted_agents[1]]
+        
+        payment = second_price / true_ctrs[winner] if true_ctrs[winner] > 0 else 0
+        remaining_budget[winner] -= payment
+        
+        return self.valuations[winner] - payment  # Return utility (value - payment)
 
 def plot_results(results):
     times, _, payments = zip(*results)
@@ -87,17 +152,85 @@ def plot_results(results):
     plt.show()
 
 
-n_agents = 3
-budgets = [100, 150, 200]
-valuations = [0.8, 0.6, 0.9]  
-step_size = 0.5
-time_horizon = 100
-upper_bound = 1.0
+def plot_regret(regret_over_time):
+    plt.figure(figsize=(10, 6))
+    
+    # Plot in log-log scale
+    plt.loglog(range(1, len(regret_over_time) + 1), regret_over_time, 'b-', label='Empirical Regret')
+    
+    # Add theoretical bound line (T^(3/4))
+    T = len(regret_over_time)
+    theoretical = [t**0.75 for t in range(1, T+1)]
+    plt.loglog(range(1, T+1), theoretical, 'r--', label='T^(3/4) Bound')
+    
+    plt.xlabel('Number of Auctions (log scale)')
+    plt.ylabel('Regret (log scale)')
+    plt.title('Budget Pacing with UCB-CTR Regret Analysis')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('regret_analysis.png', dpi=300)
+    plt.show()
 
-budget_pacing = BudgetPacingUCBCTR(n_agents, budgets, valuations, step_size, time_horizon, upper_bound)
-results = budget_pacing.run()
-plot_results(results)
-liquid_welfare = budget_pacing.calculate_objective(results, λ=0)
-total_utility = budget_pacing.calculate_objective(results, λ=1)
-print("Liquid Welfare:", liquid_welfare)
-print("Total Utility:", total_utility)
+
+def run_multiple_simulations(n_simulations=100):
+    all_regrets = []
+    
+    for sim in range(n_simulations):
+        # Randomize parameters slightly for each simulation
+        budgets = np.random.uniform(100, 1000, n_agents)  
+        valuations = np.random.uniform(0.1, 10, n_agents)   
+
+        # Debug print to see the ranges
+        print(f"Simulation {sim}:")
+        print(f"Budget range: [{min(budgets):.1f}, {max(budgets):.1f}]")
+        print(f"Value range: [{min(valuations):.1f}, {max(valuations):.1f}]")
+        
+        budget_pacing = BudgetPacingUCBCTR(n_agents, budgets, valuations, step_size, time_horizon, upper_bound)
+        results = budget_pacing.run()
+        regret = budget_pacing.calculate_regret(results)
+        
+        # Filter out any negative regrets as done in paper
+        regret = np.maximum(regret, 1e-10)  # Replace negatives with small positive
+        all_regrets.append(regret)
+    
+    return all_regrets
+
+def plot_regret_analysis(all_regrets):
+    plt.figure(figsize=(10, 6))
+    
+    # Plot each simulation's regret curve
+    x = np.arange(1, time_horizon + 1)
+    for regret in all_regrets:
+        plt.loglog(x, regret, alpha=0.3, linewidth=0.5)
+    
+    # Calculate and print average slope (α)
+    log_x = np.log(x)
+    slopes = []
+    for regret in all_regrets:
+        log_y = np.log(regret)
+        slope, _ = np.polyfit(log_x, log_y, 1)
+        slopes.append(slope)
+    
+    avg_slope = np.mean(slopes)
+    std_slope = np.std(slopes)
+    print(f"Estimated α = {avg_slope:.3f} (±{std_slope:.3f})")
+    
+    # Set x-axis limits to start from 1000
+    plt.xlim(1000, time_horizon)
+    
+    plt.xlabel('Number of Auctions (Log)')
+    plt.ylabel('Total Regret (Log)')
+    plt.title('Budget Pacing with UCB-CTR Regret Analysis')
+    plt.grid(True)
+    plt.savefig('regret_analysis.png', dpi=300)
+    plt.show()
+
+# Parameters
+n_agents = 3
+step_size = 0.1
+time_horizon = 10000
+upper_bound = 5.0
+
+# Run simulations and plot
+all_regrets = run_multiple_simulations(n_simulations=100)
+plot_regret_analysis(all_regrets)
