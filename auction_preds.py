@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class BudgetPacingUCBCTR:
     def __init__(self, num_agents, budgets, valuations, step_size, time_horizon, upper_bound):
         self.num_agents = num_agents
@@ -16,9 +17,12 @@ class BudgetPacingUCBCTR:
         self.impressions = np.ones(self.num_agents)
         self.remaining_budgets = self.budgets.copy()
 
+        self.liquid_welfare = []
+        self.allocations = np.zeros((self.num_agents, self.time_horizon)) 
+        self.payments = np.zeros((self.num_agents, self.time_horizon)) 
+
     def run(self):
         bids = np.zeros(self.num_agents)
-        results = []
 
         for t in range(self.time_horizon):
             self.ctr_estimates = (
@@ -43,7 +47,10 @@ class BudgetPacingUCBCTR:
             )
 
             self.remaining_budgets[winner] -= payment
-            results.append((t, winner, payment))
+            self.allocations[winner, t] = 1  
+            self.payments[winner, t] = payment  
+
+            self.liquid_welfare.append(self.calculate_objective(self.allocations)[0])
 
             for k in range(self.num_agents):
                 self.pacing_multipliers[k] = max(
@@ -56,48 +63,30 @@ class BudgetPacingUCBCTR:
                 if k == winner:
                     self.click_counts[k] += 1
 
-        return results
-    
+        return self.allocations
 
-    def calculate_objective(self, results, λ=0):
-        agent_impressions = np.zeros(self.num_agents)
+    def calculate_objective(self, allocations, λ=0):
         total_utility = 0
-        for _, winner, payment in results:
-            agent_impressions[winner] += 1
-            total_utility += self.valuations[winner] - payment  
-
+        utilities = np.zeros(self.num_agents)
         liquid_welfare = 0
         for agent in range(self.num_agents):
-            total_value = agent_impressions[agent] * self.valuations[agent]
-            liquid_welfare += min(self.budgets[agent], total_value)
-
-        return (1-λ) * liquid_welfare + (λ * total_utility)
-
-def plot_results(results):
-    times, _, payments = zip(*results)
-
-    plt.figure(figsize=(8, 6))
-    plt.plot(times, payments, label="Payments", marker='o')
-    plt.xlabel("Time")
-    plt.ylabel("Payments")
-    plt.title("Auction Payments Over Time")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig("results.png", format="png", dpi=300)
-    plt.show()
+            total_value = sum(allocations[agent] * valuations[agent])
+            liquid_welfare += min(budgets[agent], total_value)
+            payments = sum(allocations[agent])  
+            total_utility += total_value - payments
+        return (1-λ) * liquid_welfare + (λ * total_utility), utilities
 
 
-n_agents = 3
+num_agents = 3
 budgets = [100, 150, 200]
-valuations = [0.8, 0.6, 0.9]  
-step_size = 0.5
-time_horizon = 100
+valuations = [0.8,0.7,0.6]
+step_size = 0.025
+time_horizon = 2500
 upper_bound = 1.0
 
-budget_pacing = BudgetPacingUCBCTR(n_agents, budgets, valuations, step_size, time_horizon, upper_bound)
+budget_pacing = BudgetPacingUCBCTR(num_agents, budgets, valuations, step_size, time_horizon, upper_bound)
 results = budget_pacing.run()
-plot_results(results)
-liquid_welfare = budget_pacing.calculate_objective(results, λ=0)
-total_utility = budget_pacing.calculate_objective(results, λ=1)
-print("Liquid Welfare:", liquid_welfare)
-print("Total Utility:", total_utility)
+objective, utilities = budget_pacing.calculate_objective(results, λ=1)
+
+print("Total Objective:", objective)
+print("Utilities:", utilities)
