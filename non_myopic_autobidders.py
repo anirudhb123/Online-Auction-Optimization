@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 class BudgetPacingCTRPredictor:
     def __init__(self, num_agents, budgets, valuations, step_size, time_horizon, upper_bound):
@@ -8,6 +9,11 @@ class BudgetPacingCTRPredictor:
         self.step_size = step_size
         self.time_horizon = time_horizon
         self.upper_bound = upper_bound
+        self.liquid_welfares = []
+
+        self.exploration_clicks = []
+        self.exploitation_clicks = []
+        self.agent_clicks = {i: {"exploration": 0, "exploitation": 0} for i in range(num_agents)}
 
     def run(self):
         # Phase 1: Exploration
@@ -33,6 +39,8 @@ class BudgetPacingCTRPredictor:
                 clicked = np.random.rand() < self.valuations[agent]  
                 clicks[agent] += clicked
                 impressions[agent] += 1
+                self.exploration_clicks.append(clicked)  
+                self.agent_clicks[agent]["exploration"] += clicked
 
             ctr_estimates = clicks / impressions
             t += 1
@@ -42,39 +50,62 @@ class BudgetPacingCTRPredictor:
         remaining_budgets = self.budgets.copy()
         allocations = np.zeros((self.num_agents, self.time_horizon))
 
+        payments = np.zeros((self.num_agents, self.time_horizon))  
+
         ctr_lower_bounds = ctr_estimates - np.sqrt(3 * np.log(self.time_horizon) / (2 * impressions))
 
         for round in range(self.time_horizon):
             bids = np.zeros(self.num_agents)
-            
+
             for agent in range(self.num_agents):
-                adjusted_valuation = self.valuations[agent] * ctr_lower_bounds[agent]  
+                adjusted_valuation = self.valuations[agent] * ctr_lower_bounds[agent]
                 bids[agent] = min(adjusted_valuation / (1 + pacing_multipliers[agent]), remaining_budgets[agent])
 
             weighted_bids = bids * ctr_lower_bounds
-            winning_agent = np.argmax(weighted_bids)
-            Q1 = weighted_bids[winning_agent]
-            Q2 = np.partition(weighted_bids, -2)[-2]  
+            
+            sorted_agents = np.argsort(weighted_bids)[::-1]
+            winning_agent = None
+            payment = 0
+
+            for candidate in sorted_agents:
+                Q2 = max(weighted_bids[j] for j in range(self.num_agents) if j != candidate)
+                payment_candidate = Q2 / ctr_lower_bounds[candidate] if ctr_lower_bounds[candidate] > 0 else 0
+
+                if remaining_budgets[candidate] >= payment_candidate:
+                    winning_agent = candidate
+                    payment = payment_candidate
+                    break
+
+            if winning_agent is None:
+                continue
 
             clicked = np.random.rand() < self.valuations[winning_agent]
-            payment = (Q2 / ctr_lower_bounds[winning_agent]) * clicked if ctr_lower_bounds[winning_agent] > 0 else 0
+            if clicked:
+                remaining_budgets[winning_agent] -= payment
+                self.exploitation_clicks.append(1)
+                self.agent_clicks[winning_agent]["exploitation"] += 1
+            else:
+                self.exploitation_clicks.append(0)
 
             pacing_multipliers[winning_agent] = np.clip(
                 pacing_multipliers[winning_agent] - self.step_size * (self.budgets[winning_agent] / self.time_horizon - payment),
                 0, self.upper_bound
             )
-            remaining_budgets[winning_agent] -= payment
 
             allocations[winning_agent, round] = 1
+            payments[winning_agent, round] = payment
 
-        liquid_welfare = self.calculate_objective(self.valuations, allocations, self.budgets)
+            self.liquid_welfares.append(self.calculate_objective(self.valuations, allocations, self.budgets))
 
         return {
             "ctr_estimates": ctr_estimates,
             "pacing_multipliers": pacing_multipliers,
             "remaining_budgets": remaining_budgets,
             "allocations": allocations,
-            "liquid_welfare": liquid_welfare
+            "liquid_welfare": self.liquid_welfares[-1],
+            "payments": payments,
+            'exploration_clicks': self.exploration_clicks,
+            'exploitation_clicks': self.exploitation_clicks
         }
     
     def calculate_objective(self, valuations, allocations, budgets, λ=0):
@@ -89,9 +120,9 @@ class BudgetPacingCTRPredictor:
 
 num_agents = 3
 budgets = [100, 150, 200]
-valuations = [50,20,10]
+valuations = [0.8,0.7,0.6]
 step_size = 0.025
-time_horizon = 1000
+time_horizon = 2500
 upper_bound = 1.0
 
 predictor = BudgetPacingCTRPredictor(num_agents, budgets, valuations, step_size, time_horizon, upper_bound)
