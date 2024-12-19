@@ -121,7 +121,7 @@ class BudgetPacingCTRPredictor:
 num_agents = 3
 budgets = [100, 150, 200]
 valuations = [0.8,0.7,0.6]
-step_size = 5
+step_size = 0.025
 time_horizon = 2500
 upper_bound = 1.0
 
