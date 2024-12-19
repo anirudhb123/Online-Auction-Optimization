@@ -121,7 +121,7 @@ class BudgetPacingCTRPredictor:
 num_agents = 3
 budgets = [100, 150, 200]
 valuations = [0.8,0.7,0.6]
-step_size = 0.025
+step_size = 5
 time_horizon = 2500
 upper_bound = 1.0
 
@@ -132,3 +132,91 @@ print("Final CTR Estimates:", results["ctr_estimates"])
 print("Final Pacing Multipliers:", results["pacing_multipliers"])
 print("Remaining Budgets:", results["remaining_budgets"])
 print("Liquid Welfare:", results["liquid_welfare"])
+
+
+# Payment Plots 
+payments = results["payments"]
+cumulative_payments = np.cumsum(payments, axis=1)
+
+plt.figure(figsize=(10, 6))
+for agent in range(num_agents):
+    plt.plot(cumulative_payments[agent], label=f"Agent {agent}")
+
+plt.xlabel("Rounds")
+plt.ylabel("Cumulative Payments")
+plt.title("Cumulative Payments Over Time")
+plt.legend()
+plt.grid(True)
+plt.savefig("cumulative_payments_over_time_non_myopic.png")  
+
+# Liquid Welfare Plots
+liquid_welfare_values = predictor.liquid_welfares
+
+plt.figure(figsize=(10, 6))
+plt.plot(range(len(liquid_welfare_values)), liquid_welfare_values, label="Liquid Welfare", color="blue")
+plt.xlabel("Iterations (Time Steps)")
+plt.ylabel("Liquid Welfare")
+plt.title("Liquid Welfare Over Time")
+plt.grid(True)
+plt.legend()
+plt.savefig(f"non_myopic_liquid_welfare_{time_horizon}_steps")
+
+# Exploration vs. Exploitation Phase Plots
+agents = np.arange(num_agents)
+exploration = [predictor.agent_clicks[i]["exploration"] for i in range(num_agents)]
+exploitation = [predictor.agent_clicks[i]["exploitation"] for i in range(num_agents)]
+
+plt.figure(figsize=(10, 6))
+bar_width = 0.35
+
+bars1 = plt.bar(agents, exploration, width=bar_width, label='Exploration')
+bars2 = plt.bar(agents + bar_width, exploitation, width=bar_width, label='Exploitation')
+
+for bar in bars1:
+    plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f'{int(bar.get_height())}',
+             ha='center', va='bottom', fontsize=9)
+
+for bar in bars2:
+    plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f'{int(bar.get_height())}',
+             ha='center', va='bottom', fontsize=9)
+
+plt.xlabel('Agent')
+plt.ylabel('Total Clicks')
+plt.title(f"Total Clicks Per Agent: Exploration vs Exploitation - {time_horizon} Steps")
+plt.xticks(agents + bar_width / 2, [f'Agent {i}' for i in agents])
+plt.yscale('log')  
+plt.legend()
+plt.savefig(f"clicks_per_agent_{time_horizon}_steps")
+
+exploration_clicks = np.cumsum(predictor.exploration_clicks)
+exploitation_clicks = np.cumsum(predictor.exploitation_clicks)
+
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, len(exploration_clicks) + 1), exploration_clicks, label='Exploration Phase')
+plt.plot(range(len(exploration_clicks) + 1, len(exploration_clicks) + len(exploitation_clicks) + 1),
+         exploration_clicks[-1] + exploitation_clicks, label='Exploitation Phase')
+plt.axvline(x=len(exploration_clicks), color='r', linestyle='--', label='Phase Transition')
+plt.text(len(exploration_clicks) + 50, plt.ylim()[1] * 0.5, f"{len(exploration_clicks)}", 
+         ha='left', va='center', fontsize=10, color='black')
+plt.xlabel('Rounds')
+plt.ylabel('Cumulative Clicks')
+plt.title(f"Cumulative Clicks Over Time: Exploration vs Exploitation - Step Size: {step_size}")
+plt.legend()
+print(f"exploration_vs_exploitation_{time_horizon}_steps_{step_size * 1000}_size")
+plt.savefig(f"exploration_vs_exploitation_{time_horizon}_steps_{int(step_size * 1000)}_size")
+
+
+# CTR Estimate Plots 
+labels = [f"Agent {i}" for i in range(num_agents)]
+width = 0.35  
+plt.figure(figsize=(10, 6))
+plt.bar(range(num_agents), valuations, width, label='Valuations', alpha=0.7)
+plt.bar([i + width for i in range(num_agents)], results['ctr_estimates'], width, label='CTR Estimates', alpha=0.7)
+
+plt.xticks([i + width / 2 for i in range(num_agents)], labels, rotation=45)
+plt.ylabel('Values')
+plt.title('Comparison of Valuations and CTR Estimates (Non-Myopic Algorithm)')
+plt.legend()
+plt.tight_layout()
+plt.savefig('valuation_ctr_non_myopic')
+print(results['ctr_estimates'])
