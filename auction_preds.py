@@ -90,3 +90,43 @@ objective, utilities = budget_pacing.calculate_objective(results, λ=1)
 
 print("Total Objective:", objective)
 print("Utilities:", utilities)
+
+# Liquid Welfare Plots 
+liquid_welfare_values = budget_pacing.liquid_welfare
+plt.figure(figsize=(10, 6))
+plt.plot(range(len(liquid_welfare_values)), liquid_welfare_values, label="Liquid Welfare", color="blue")
+plt.xlabel("Iterations (Time Steps)")
+plt.ylabel("Liquid Welfare")
+plt.title("Liquid Welfare Over Time")
+plt.grid(True)
+plt.legend()
+plt.savefig(f"myopic_liquid_welfare_{time_horizon}_steps")
+
+# Payment Plots 
+cumulative_payments = np.cumsum(budget_pacing.payments, axis=1)  
+plt.figure(figsize=(10, 6))
+for agent in range(num_agents):
+    plt.plot(cumulative_payments[agent], label=f"Agent {agent}")
+
+plt.xlabel("Rounds")
+plt.ylabel("Cumulative Payments")
+plt.title("Cumulative Payments Over Time")
+plt.legend(loc='upper right')
+plt.grid(True)
+plt.savefig("myopic_cumulative_payments_over_time")  
+plt.show()
+
+# CTR Estimate Plots 
+labels = [f"Agent {i}" for i in range(num_agents)]
+width = 0.35  
+
+plt.bar(range(num_agents), valuations, width, label='Valuations', alpha=0.7)
+plt.bar([i + width for i in range(num_agents)], budget_pacing.ctr_estimates, width, label='CTR Estimates', alpha=0.7)
+
+plt.xticks([i + width / 2 for i in range(num_agents)], labels, rotation=45)
+plt.ylabel('Values')
+plt.title('Comparison of Valuations and CTR Estimates (Myopic Algorithm)')
+plt.legend()
+plt.tight_layout()
+plt.savefig('valuation_ctr_myopic')
+print(budget_pacing.ctr_estimates)
