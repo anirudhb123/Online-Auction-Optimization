@@ -88,8 +88,9 @@ budget_pacing = BudgetPacingUCBCTR(num_agents, budgets, valuations, step_size, t
 results = budget_pacing.run()
 objective, utilities = budget_pacing.calculate_objective(results, λ=1)
 
-print("Total Objective:", objective)
-print("Utilities:", utilities)
+print("Final CTR Estimates:", budget_pacing.ctr_estimates)
+print("Remaining Budgets:", budget_pacing.remaining_budgets)
+print("Liquid Welfare:", budget_pacing.calculate_objective(results, λ=0))
 
 # Liquid Welfare Plots 
 liquid_welfare_values = budget_pacing.liquid_welfare
