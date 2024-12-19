@@ -114,7 +114,6 @@ plt.title("Cumulative Payments Over Time")
 plt.legend(loc='upper right')
 plt.grid(True)
 plt.savefig("myopic_cumulative_payments_over_time")  
-plt.show()
 
 # CTR Estimate Plots 
 labels = [f"Agent {i}" for i in range(num_agents)]
