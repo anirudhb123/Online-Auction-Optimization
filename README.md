@@ -11,7 +11,7 @@ In this project, we implement and simulate two budget-pacing algorithms for onli
 
 ### Running Simulations
 
-The myopic algorithm can be run using the command ```python myopic_autobidder.py```, while the non-myopic algorithm can be run using ```python non_myopic_autobidder.py```.
+The myopic algorithm can be run using the command ```python myopic.py```, while the non-myopic algorithm can be run using ```python non_myopic.py```.
 
 ### Parameters
 
