@@ -4,8 +4,8 @@
 
 In this project, we implement and simulate two algorithms for online auctions that are defined in our paper:
 
-1. **Myopic Algorithm:** Uses a UCB-style CTR prediction approach to optimize bids.
-2. **Non-Myopic Algorithm:** Balances exploration and exploitation in CTR prediction to optimize bids over a longer horizon.
+1. **Myopic Algorithm:** Uses a UCB-style CTR prediction approach to optimize bids (assumes autobidders are myopic)
+2. **Non-Myopic Algorithm:** Balances exploration and exploitation in CTR prediction to optimize bids over a longer horizon (assumes autobidders are non-myopic)
 
 ## Usage
 
