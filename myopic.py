@@ -90,16 +90,16 @@ class BudgetPacingUCBCTR:
 
     def compute_optimal_liquid_welfare(self):
         """
-        Compute the offline optimal liquid welfare w*.
+        Compute the optimal liquid welfare w*.
         We assume that if agent i is allocated x_i impressions,
         the expected value per impression is (rho_i * v_i),
-        where rho_i is taken as the final CTR estimate (self.rho_hat).
+        where rho_i is true CTR value for agent i.
 
         Returns:
           w_star: Optimal liquid welfare (gross expected value).
           x_opt:  Optimal impression allocations (per agent).
         """
-        ctr = self.rho_hat  
+        ctr = self.true_ctrs  
         valuations = self.valuations
         budgets = self.budgets
         T = self.T
