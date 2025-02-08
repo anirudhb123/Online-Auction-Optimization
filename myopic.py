@@ -24,25 +24,28 @@ class BudgetPacingUCBCTR:
         self.true_ctrs = np.array(true_ctrs, dtype=float)
 
         self.mu = np.zeros(self.n)
-
         self.remaining_budget = self.budgets.copy()
 
-        self.N = np.ones(self.n)  
+        self.N = np.ones(self.n)
         self.rho_hat = np.zeros(self.n)
         for k in range(self.n):
-
             click = np.random.rand() < self.true_ctrs[k]
             self.rho_hat[k] = 1.0 if click else 0.0
 
-        self.allocations = np.zeros((self.n, T))  
-        self.payments = np.zeros((self.n, T))       
-        self.mu_history = np.zeros((self.n, T))       
-        self.liquid_welfare = []  
+        self.allocations = np.zeros((self.n, T))
+        self.payments = np.zeros((self.n, T))
+        self.mu_history = np.zeros((self.n, T))
+        self.liquid_welfare = []
+
+        self.rho_hat_history = np.zeros((self.n, T))
+        self.N_history = np.zeros((self.n, T))
 
     def run(self):
         for t in range(self.T):
+            tilde_rho = np.minimum(self.rho_hat + sqrt(3 * log(self.T) / (2 * self.N)), 1.0)
 
-            tilde_rho = self.rho_hat + sqrt(3 * log(self.T) / (2 * self.N))
+            self.rho_hat_history[:, t] = self.rho_hat
+            self.N_history[:, t] = self.N
 
             bids = np.zeros(self.n)
             for k in range(self.n):
@@ -60,11 +63,10 @@ class BudgetPacingUCBCTR:
             z = np.zeros(self.n)
             for k in range(self.n):
                 if k == winner:
-
                     clicked = (np.random.rand() < self.true_ctrs[k])
                     z[k] = (Q2 / tilde_rho[k]) if clicked else 0.0
                     self.N[k] += 1
-                    self.rho_hat[k] = (1 - 1/self.N[k]) * self.rho_hat[k] + (1.0 if clicked else 0.0) / self.N[k]
+                    self.rho_hat[k] = (1 - 1/self.N[k]) * self.rho_hat[k] + ((1.0 if clicked else 0.0) / self.N[k])
                 else:
                     z[k] = 0.0
 
@@ -79,21 +81,29 @@ class BudgetPacingUCBCTR:
                     self.allocations[k, t] = 1
                     self.payments[k, t] = z[k]
 
+            # Compute liquid welfare using the true CTRs (not the UCB-adjusted ones)
             lw = 0.0
             for k in range(self.n):
                 impressions_allocated = np.sum(self.allocations[k, :t+1])
-                value_k = impressions_allocated * (tilde_rho[k] * self.valuations[k])
+                # Use true_ctr instead of tilde_rho
+                value_k = impressions_allocated * (self.true_ctrs[k] * self.valuations[k])
                 lw += min(self.budgets[k], value_k)
             self.liquid_welfare.append(lw)
 
         return self.allocations
 
+    def compute_optimal_revenue(self):
+        """
+        Compute the offline optimal revenue (OPT) as defined in the paper.
+        """
+        products = self.true_ctrs * self.valuations
+        sorted_products = np.sort(products)[::-1]
+        second_highest = sorted_products[1] if len(sorted_products) > 1 else sorted_products[0]
+        return self.T * second_highest
+
     def compute_optimal_liquid_welfare(self):
         """
         Compute the optimal liquid welfare w*.
-        We assume that if agent i is allocated x_i impressions,
-        the expected value per impression is (rho_i * v_i),
-        where rho_i is true CTR value for agent i.
 
         Returns:
           w_star: Optimal liquid welfare (gross expected value).
@@ -127,13 +137,14 @@ class BudgetPacingUCBCTR:
         else:
             raise Exception("Offline LP did not converge.")
 
-num_agents = 3
-budgets = [100, 150, 200]
-valuations = [0.8, 0.7, 0.6]
+
+num_agents = 10
+budgets = np.random.uniform(100, 200, num_agents)
+valuations = np.random.uniform(0.5, 1.0, num_agents)
 epsilon = 0.025
-T = 2500
+T = 35000
 mu_bar = 1.0
-true_ctrs = [0.7, 0.50, 0.8]  
+true_ctrs = np.random.uniform(0.1, 0.9, num_agents)
 
 pacing_algo = BudgetPacingUCBCTR(num_agents, budgets, valuations, epsilon, T, mu_bar, true_ctrs)
 allocations = pacing_algo.run()
@@ -148,15 +159,13 @@ print("Offline Optimal Liquid Welfare:", w_star)
 print("Optimal Impression Allocations:", x_opt)
 
 total_revenue = np.sum(pacing_algo.payments)
-print("Total Revenue:", total_revenue)
-
-actual_regret = w_star - total_revenue
+opt = pacing_algo.compute_optimal_revenue()
+actual_regret = opt - total_revenue
 print("Actual Revenue Regret:", actual_regret)
 
 true_ctrs_arr = np.array(true_ctrs)
 prod = true_ctrs_arr * np.array(valuations)
 sorted_prod = np.sort(prod)
-
 if num_agents >= 2:
     smax = sorted_prod[-2]
 else:
@@ -164,13 +173,10 @@ else:
 K = smax  
 
 c = 3
-
 term1 = 0.0
 for k in range(num_agents):
     term1 += np.sqrt((2 * c * T * np.log(2 * num_agents * T)) / true_ctrs[k])
-
 term2 = num_agents / epsilon
-
 theoretical_bound = K * term1 + K * mu_bar * term2 + K / T
 print("Theoretical Regret Bound:", theoretical_bound)
 
@@ -197,15 +203,17 @@ plt.grid(True)
 plt.savefig("cumulative_payments_over_time.png")
 plt.show()
 
-labels = [f"Agent {i}" for i in range(num_agents)]
-width = 0.35
 plt.figure(figsize=(10, 6))
-plt.bar(np.arange(num_agents), true_ctrs, width, label="True CTRs", alpha=0.7, color="green")
-plt.bar(np.arange(num_agents) + width, pacing_algo.rho_hat, width, label="Estimated CTRs", alpha=0.7, color="blue")
-plt.xticks(np.arange(num_agents) + width/2, labels)
+for k in range(num_agents):
+    final_N = pacing_algo.N_history[k, -1]
+    final_rho_hat = pacing_algo.rho_hat_history[k, -1]
+    ci_width = sqrt(3 * log(T) / (2 * final_N))
+    plt.errorbar(k, final_rho_hat, yerr=ci_width, fmt='o', color='blue', label="Estimated CTR" if k==0 else "")
+    plt.plot(k, pacing_algo.true_ctrs[k], 'ro', label="True CTR" if k==0 else "")
+plt.xlabel("Agent")
 plt.ylabel("CTR")
-plt.title("Comparison of True CTRs and Estimated CTRs")
+plt.title("Final Estimated CTRs with Confidence Intervals vs. True CTRs")
 plt.legend()
-plt.tight_layout()
-plt.savefig("true_vs_estimated_ctr.png")
+plt.grid(True)
+plt.savefig("ctr_confidence_intervals.png")
 plt.show()
