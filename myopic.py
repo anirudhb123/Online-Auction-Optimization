@@ -94,12 +94,6 @@ class BudgetPacingUCBCTR:
         We assume that if agent i is allocated x_i impressions,
         the expected value per impression is (rho_i * v_i),
         where rho_i is taken as the final CTR estimate (self.rho_hat).
-        The LP is:
-
-            maximize   sum_i (rho_i * v_i) * x_i
-            subject to (rho_i * v_i) * x_i <= B_i   for each agent i,
-                       sum_i x_i <= T,
-                       x_i >= 0.
 
         Returns:
           w_star: Optimal liquid welfare (gross expected value).
