@@ -83,11 +83,9 @@ class BudgetPacingUCBCTR:
                     self.allocations[k, t] = 1
                     self.payments[k, t] = z[k]
 
-            # Compute liquid welfare using the true CTRs (not the UCB-adjusted ones)
             lw = 0.0
             for k in range(self.n):
                 impressions_allocated = np.sum(self.allocations[k, :t+1])
-                # Use true_ctr instead of tilde_rho
                 value_k = impressions_allocated * (self.true_ctrs[k] * self.valuations[k])
                 lw += min(self.budgets[k], value_k)
             self.liquid_welfare.append(lw)
@@ -95,22 +93,12 @@ class BudgetPacingUCBCTR:
         return self.allocations
 
     def compute_optimal_revenue(self):
-        """
-        Compute the offline optimal revenue (OPT) as defined in the paper.
-        """
         products = self.true_ctrs * self.valuations
         sorted_products = np.sort(products)[::-1]
         second_highest = sorted_products[1] if len(sorted_products) > 1 else sorted_products[0]
         return self.T * second_highest
 
     def compute_optimal_liquid_welfare(self):
-        """
-        Compute the optimal liquid welfare w*.
-
-        Returns:
-          w_star: Optimal liquid welfare (gross expected value).
-          x_opt:  Optimal impression allocations (per agent).
-        """
         ctr = self.true_ctrs  
         valuations = self.valuations
         budgets = self.budgets
@@ -139,45 +127,40 @@ class BudgetPacingUCBCTR:
         else:
             raise Exception("Offline LP did not converge.")
 
+    def compute_theoretical_regret_bound(self):
+        sorted_prod = np.sort(self.true_ctrs * self.valuations)
+        smax = sorted_prod[-2] if self.n >= 2 else sorted_prod[-1]
+        term1 = sum(np.sqrt((2 * 3 * self.T * np.log(2 * self.n * self.T)) / self.true_ctrs))
+        term2 = self.n / self.epsilon
+        theoretical_bound = smax * (term1 + self.mu_bar * term2 + 1 / self.T)
+        return theoretical_bound
+
+# Parameters
 num_agents = 20
 valuations = np.random.uniform(0.5, 1.0, num_agents)
 epsilon = 0.025
-T = 100000
+T = 5000
 budgets = np.random.uniform(100, 200, num_agents)
 mu_bar = 1.0
 true_ctrs = np.random.uniform(0.1, 0.9, num_agents)
 
+# Run the algorithm
 pacing_algo = BudgetPacingUCBCTR(num_agents, budgets, valuations, epsilon, T, mu_bar, true_ctrs)
 allocations = pacing_algo.run()
 
+# Output results
 print("Final CTR Estimates:", pacing_algo.rho_hat)
-
 w_star, x_opt = pacing_algo.compute_optimal_liquid_welfare()
 print("Achieved Liquid Welfare:", pacing_algo.liquid_welfare[-1])
 print("Offline Optimal Liquid Welfare:", w_star)
-
 total_revenue = np.sum(pacing_algo.payments)
 opt = pacing_algo.compute_optimal_revenue()
 actual_regret = opt - total_revenue
 print("Actual Revenue Regret:", actual_regret)
-
-true_ctrs_arr = np.array(true_ctrs)
-prod = true_ctrs_arr * np.array(valuations)
-sorted_prod = np.sort(prod)
-if num_agents >= 2:
-    smax = sorted_prod[-2]
-else:
-    smax = sorted_prod[-1]
-K = smax  
-
-c = 3
-term1 = 0.0
-for k in range(num_agents):
-    term1 += np.sqrt((2 * c * T * np.log(2 * num_agents * T)) / true_ctrs[k])
-term2 = num_agents / epsilon
-theoretical_bound = K * term1 + K * mu_bar * term2 + K / T
+theoretical_bound = pacing_algo.compute_theoretical_regret_bound()
 print("Theoretical Regret Bound:", theoretical_bound)
 
+# Plot results
 plt.figure(figsize=(10, 6))
 plt.plot(range(len(pacing_algo.liquid_welfare)), pacing_algo.liquid_welfare, label="Achieved Liquid Welfare (Gross Value)", color="blue")
 plt.axhline(y=w_star, color="red", linestyle="--", label="Offline Optimal Liquid Welfare (w*)")
