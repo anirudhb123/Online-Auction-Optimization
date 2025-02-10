@@ -151,13 +151,10 @@ pacing_algo = BudgetPacingUCBCTR(num_agents, budgets, valuations, epsilon, T, mu
 allocations = pacing_algo.run()
 
 print("Final CTR Estimates:", pacing_algo.rho_hat)
-print("Final Pacing Multipliers:", pacing_algo.mu)
-print("Remaining Budgets:", pacing_algo.remaining_budget)
 
 w_star, x_opt = pacing_algo.compute_optimal_liquid_welfare()
 print("Achieved Liquid Welfare:", pacing_algo.liquid_welfare[-1])
 print("Offline Optimal Liquid Welfare:", w_star)
-print("Optimal Impression Allocations:", x_opt)
 
 total_revenue = np.sum(pacing_algo.payments)
 opt = pacing_algo.compute_optimal_revenue()
