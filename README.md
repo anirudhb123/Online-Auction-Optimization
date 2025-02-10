@@ -5,7 +5,7 @@
 In this project, we implement and simulate two budget-pacing algorithms for online auctions that are defined in our paper:
 
 1. **Myopic Algorithm:** Uses a UCB-style CTR prediction approach to optimize bids.
-2. **Non-Myopic Algorithm:** Balances exploration and exploitation in CTR prediction to optimize bids over a longer horizon.
+2. **Non-Myopic Algorithm:** Balances exploration and exploitation in CTR prediction to optimize bids over a longer horizon. (*Note: This implementation is currently a work in progress.*)
 
 ## Usage
 
