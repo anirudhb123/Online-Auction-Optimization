@@ -3,6 +3,8 @@ from numpy import log, sqrt
 import matplotlib.pyplot as plt
 from scipy.optimize import linprog
 
+np.random.seed(42)
+
 class BudgetPacingUCBCTR:
     def __init__(self, num_agents, budgets, valuations, epsilon, T, mu_bar, true_ctrs):
         """
@@ -137,12 +139,11 @@ class BudgetPacingUCBCTR:
         else:
             raise Exception("Offline LP did not converge.")
 
-
-num_agents = 10
-budgets = np.random.uniform(100, 200, num_agents)
+num_agents = 20
 valuations = np.random.uniform(0.5, 1.0, num_agents)
 epsilon = 0.025
-T = 35000
+T = 100000
+budgets = np.random.uniform(100, 200, num_agents)
 mu_bar = 1.0
 true_ctrs = np.random.uniform(0.1, 0.9, num_agents)
 
