@@ -15,14 +15,16 @@ The myopic algorithm can be run using the command ```python myopic.py```, while 
 
 ### Parameters
 
-We've preset parameters for each algorithm (lines 80-85 in the myopic algorithm and 121-126 in the non-myopic algorithm) but these can be modified as necessary.
+We've preset parameters for each algorithm (lines 142-148 in the myopic algorithm and 121-126 in the non-myopic algorithm) but these can be modified as necessary.
 
 ## Output
 
 Simulation results will be output as console messages, detailing metrics such as:
 
-- Total Liquid Welfare
-- Remaining Budgets
+- Achieved Liquid Welfare
+- Offline Optimal Liquid Welfare
 - CTR Estimates
+- Revenue Regret
+- Theoretical Revenue Bound
 
 You can also visualize additional results using the provided plots.
