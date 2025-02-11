@@ -199,3 +199,22 @@ plt.legend()
 plt.grid(True)
 plt.savefig("ctr_confidence_intervals.png")
 plt.show()
+
+optimal_revenue_per_round = pacing_algo.compute_optimal_revenue() / T
+
+cumulative_regret = np.zeros(T)
+for t in range(T):
+    payments_in_round_t = np.sum(pacing_algo.payments[:, t])
+    regret_in_round_t = optimal_revenue_per_round - payments_in_round_t
+    cumulative_regret[t] = cumulative_regret[t - 1] + regret_in_round_t if t > 0 else regret_in_round_t
+
+plt.figure(figsize=(10, 6))
+plt.plot(range(T), cumulative_regret, label="Actual Revenue Regret", color='blue')
+plt.axhline(y=pacing_algo.compute_theoretical_regret_bound(), color='red', linestyle='--', label="Theoretical Regret Bound")
+plt.xlabel("Rounds")
+plt.ylabel("Cumulative Revenue Regret")
+plt.title("Revenue Regret Over Time vs. Theoretical Bound")
+plt.legend()
+plt.grid(True)
+plt.savefig("increasing_cumulative_regret.png")
+plt.show()
