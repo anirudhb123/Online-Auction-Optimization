@@ -2,6 +2,7 @@ import numpy as np
 from numpy import log, sqrt
 import matplotlib.pyplot as plt
 from scipy.optimize import linprog
+from tqdm import tqdm
 
 np.random.seed(42)
 
@@ -43,7 +44,7 @@ class BudgetPacingUCBCTR:
         self.N_history = np.zeros((self.n, T))
 
     def run(self):
-        for t in range(self.T):
+        for t in tqdm(range(self.T), desc="Time Horizon", ncols=100, unit="round", leave=True):
             tilde_rho = np.minimum(self.rho_hat + sqrt(3 * log(self.T) / (2 * self.N)), 1.0)
 
             self.rho_hat_history[:, t] = self.rho_hat
